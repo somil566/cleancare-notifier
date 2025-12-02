@@ -3,12 +3,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Phone, Shirt, Plus, Sparkles } from 'lucide-react';
+import { User, Phone, Shirt, Plus, Sparkles, Loader2 } from 'lucide-react';
 import { Order } from '@/types/order';
 import { QRCodeSVG } from 'qrcode.react';
 
 interface OrderFormProps {
-  onSubmit: (customerName: string, phone: string, items: number) => Order;
+  onSubmit: (customerName: string, phone: string, items: number) => Promise<Order>;
 }
 
 export const OrderForm = ({ onSubmit }: OrderFormProps) => {
@@ -16,19 +16,27 @@ export const OrderForm = ({ onSubmit }: OrderFormProps) => {
   const [phone, setPhone] = useState('');
   const [items, setItems] = useState('');
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!customerName.trim() || !phone.trim() || !items) return;
 
-    const order = onSubmit(customerName.trim(), phone.trim(), parseInt(items));
-    setCreatedOrder(order);
-    
-    // Reset form
-    setCustomerName('');
-    setPhone('');
-    setItems('');
+    setIsSubmitting(true);
+    try {
+      const order = await onSubmit(customerName.trim(), phone.trim(), parseInt(items));
+      setCreatedOrder(order);
+      
+      // Reset form
+      setCustomerName('');
+      setPhone('');
+      setItems('');
+    } catch (error) {
+      console.error('Failed to create order:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -58,6 +66,7 @@ export const OrderForm = ({ onSubmit }: OrderFormProps) => {
                 required
                 maxLength={100}
                 className="bg-background/50"
+                disabled={isSubmitting}
               />
             </div>
 
@@ -75,6 +84,7 @@ export const OrderForm = ({ onSubmit }: OrderFormProps) => {
                 required
                 maxLength={20}
                 className="bg-background/50"
+                disabled={isSubmitting}
               />
             </div>
 
@@ -92,12 +102,17 @@ export const OrderForm = ({ onSubmit }: OrderFormProps) => {
                 onChange={(e) => setItems(e.target.value)}
                 required
                 className="bg-background/50"
+                disabled={isSubmitting}
               />
             </div>
 
-            <Button type="submit" className="w-full gap-2" size="lg">
-              <Sparkles className="w-4 h-4" />
-              Create Order
+            <Button type="submit" className="w-full gap-2" size="lg" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              {isSubmitting ? 'Creating...' : 'Create Order'}
             </Button>
           </form>
         </CardContent>
