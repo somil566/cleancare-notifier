@@ -8,8 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, Filter, LayoutGrid, List, Package } from 'lucide-react';
+import { Search, Filter, LayoutGrid, List, Package, Download, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { exportOrdersToCSV } from '@/lib/exportToExcel';
+import { toast } from '@/hooks/use-toast';
 
 const Admin = () => {
   const { orders, updateOrderStatus, deleteOrder, getOrdersByStatus } = useOrders();
@@ -30,11 +32,34 @@ const Admin = () => {
       
       <main className="container px-4 py-8">
         {/* Header */}
-        <div className="mb-8 animate-fade-in">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
-          <p className="text-muted-foreground">
-            Manage all laundry orders and track their progress
-          </p>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 animate-fade-in">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
+            <p className="text-muted-foreground">
+              Manage all laundry orders and track their progress
+            </p>
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              if (orders.length === 0) {
+                toast({ title: 'No Data', description: 'No orders to export', variant: 'destructive' });
+                return;
+              }
+              exportOrdersToCSV(orders);
+              toast({ title: 'Export Successful', description: 'Orders exported to CSV file' });
+            }} 
+            className="gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Export to Excel
+          </Button>
+        </div>
+
+        {/* Real-time indicator */}
+        <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground">
+          <RefreshCw className="w-4 h-4 animate-spin" style={{ animationDuration: '3s' }} />
+          <span>Live updates enabled</span>
         </div>
 
         {/* Stats */}
