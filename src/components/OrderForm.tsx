@@ -3,9 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Phone, Shirt, Plus, Sparkles, Loader2 } from 'lucide-react';
+import { User, Phone, Shirt, Plus, Sparkles, Loader2, Printer } from 'lucide-react';
 import { Order } from '@/types/order';
 import { QRCodeSVG } from 'qrcode.react';
+import { orderSchema } from '@/lib/validations/order';
+import { printQRCode } from '@/components/PrintableQR';
 
 interface OrderFormProps {
   onSubmit: (customerName: string, phone: string, items: number) => Promise<Order>;
@@ -17,11 +19,33 @@ export const OrderForm = ({ onSubmit }: OrderFormProps) => {
   const [items, setItems] = useState('');
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<{ customerName?: string; phone?: string; items?: string }>({});
+
+  const validateForm = () => {
+    const result = orderSchema.safeParse({
+      customerName: customerName.trim(),
+      phone: phone.trim(),
+      items: parseInt(items) || 0,
+    });
+
+    if (!result.success) {
+      const fieldErrors: typeof errors = {};
+      result.error.errors.forEach((err) => {
+        const field = err.path[0] as keyof typeof errors;
+        fieldErrors[field] = err.message;
+      });
+      setErrors(fieldErrors);
+      return false;
+    }
+
+    setErrors({});
+    return true;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!customerName.trim() || !phone.trim() || !items) return;
+    if (!validateForm()) return;
 
     setIsSubmitting(true);
     try {
@@ -32,10 +56,17 @@ export const OrderForm = ({ onSubmit }: OrderFormProps) => {
       setCustomerName('');
       setPhone('');
       setItems('');
+      setErrors({});
     } catch (error) {
       console.error('Failed to create order:', error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handlePrint = () => {
+    if (createdOrder) {
+      printQRCode(createdOrder);
     }
   };
 
@@ -65,9 +96,12 @@ export const OrderForm = ({ onSubmit }: OrderFormProps) => {
                 onChange={(e) => setCustomerName(e.target.value)}
                 required
                 maxLength={100}
-                className="bg-background/50"
+                className={`bg-background/50 ${errors.customerName ? 'border-destructive' : ''}`}
                 disabled={isSubmitting}
               />
+              {errors.customerName && (
+                <p className="text-sm text-destructive">{errors.customerName}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -78,14 +112,17 @@ export const OrderForm = ({ onSubmit }: OrderFormProps) => {
               <Input
                 id="phone"
                 type="tel"
-                placeholder="Enter mobile number"
+                placeholder="Enter mobile number (e.g., +1234567890)"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 required
                 maxLength={20}
-                className="bg-background/50"
+                className={`bg-background/50 ${errors.phone ? 'border-destructive' : ''}`}
                 disabled={isSubmitting}
               />
+              {errors.phone && (
+                <p className="text-sm text-destructive">{errors.phone}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -97,13 +134,17 @@ export const OrderForm = ({ onSubmit }: OrderFormProps) => {
                 id="items"
                 type="number"
                 min="1"
+                max="1000"
                 placeholder="Enter number of clothes"
                 value={items}
                 onChange={(e) => setItems(e.target.value)}
                 required
-                className="bg-background/50"
+                className={`bg-background/50 ${errors.items ? 'border-destructive' : ''}`}
                 disabled={isSubmitting}
               />
+              {errors.items && (
+                <p className="text-sm text-destructive">{errors.items}</p>
+              )}
             </div>
 
             <Button type="submit" className="w-full gap-2" size="lg" disabled={isSubmitting}>
@@ -147,6 +188,11 @@ export const OrderForm = ({ onSubmit }: OrderFormProps) => {
                 {createdOrder.customerName} • {createdOrder.items} items
               </p>
             </div>
+
+            <Button onClick={handlePrint} variant="outline" className="gap-2">
+              <Printer className="w-4 h-4" />
+              Print Receipt
+            </Button>
           </CardContent>
         </Card>
       )}

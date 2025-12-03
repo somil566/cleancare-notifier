@@ -3,6 +3,7 @@ import { Order, OrderStatus, STATUS_MESSAGES } from '@/types/order';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
+import { orderSchema } from '@/lib/validations/order';
 
 const generateOrderId = (): string => {
   const prefix = 'LD';
@@ -32,6 +33,35 @@ const mapDbToOrder = (dbOrder: DbOrder): Order => ({
   createdAt: dbOrder.created_at,
 });
 
+// Send notification via edge function
+const sendNotification = async (
+  phone: string,
+  customerName: string,
+  orderId: string,
+  status: OrderStatus
+) => {
+  try {
+    const { error } = await supabase.functions.invoke('send-notification', {
+      body: {
+        phone,
+        customerName,
+        orderId,
+        status,
+        statusMessage: STATUS_MESSAGES[status],
+        channel: 'both',
+      },
+    });
+    
+    if (error) {
+      console.error('Notification error:', error);
+    } else {
+      console.log('Notification sent successfully');
+    }
+  } catch (err) {
+    console.error('Failed to send notification:', err);
+  }
+};
+
 export const useOrders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -59,11 +89,56 @@ export const useOrders = () => {
     setIsLoaded(true);
   }, []);
 
+  // Set up real-time subscription
   useEffect(() => {
     fetchOrders();
+
+    const channel = supabase
+      .channel('orders-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+        },
+        (payload) => {
+          console.log('Real-time update:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            const newOrder = mapDbToOrder(payload.new as DbOrder);
+            setOrders((prev) => [newOrder, ...prev.filter(o => o.orderId !== newOrder.orderId)]);
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedOrder = mapDbToOrder(payload.new as DbOrder);
+            setOrders((prev) =>
+              prev.map((o) => (o.orderId === updatedOrder.orderId ? updatedOrder : o))
+            );
+          } else if (payload.eventType === 'DELETE') {
+            const deletedOrderId = (payload.old as DbOrder).order_id;
+            setOrders((prev) => prev.filter((o) => o.orderId !== deletedOrderId));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchOrders]);
 
   const addOrder = useCallback(async (customerName: string, phone: string, items: number): Promise<Order> => {
+    // Validate input with zod
+    const validation = orderSchema.safeParse({ customerName, phone, items });
+    if (!validation.success) {
+      const errorMessage = validation.error.errors[0]?.message || 'Invalid input';
+      toast({
+        title: 'Validation Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      throw new Error(errorMessage);
+    }
+
     const orderId = generateOrderId();
     const timestamps = [{ status: 'received', timestamp: new Date().toISOString() }];
 
@@ -71,9 +146,9 @@ export const useOrders = () => {
       .from('orders')
       .insert({
         order_id: orderId,
-        customer_name: customerName,
-        phone: phone,
-        items: items,
+        customer_name: validation.data.customerName,
+        phone: validation.data.phone,
+        items: validation.data.items,
         status: 'received',
         timestamps: timestamps as unknown as Json,
       })
@@ -91,12 +166,14 @@ export const useOrders = () => {
     }
 
     const newOrder = mapDbToOrder(data as DbOrder);
-    setOrders((prev) => [newOrder, ...prev]);
     
     toast({
       title: 'Order Created!',
       description: `Order ${newOrder.orderId} has been created successfully.`,
     });
+
+    // Send notification to customer
+    sendNotification(newOrder.phone, newOrder.customerName, newOrder.orderId, 'received');
 
     return newOrder;
   }, []);
@@ -126,23 +203,13 @@ export const useOrders = () => {
       return;
     }
 
-    setOrders((prev) =>
-      prev.map((o) => {
-        if (o.orderId === orderId) {
-          return {
-            ...o,
-            status: newStatus,
-            timestamps: updatedTimestamps as { status: OrderStatus; timestamp: string }[],
-          };
-        }
-        return o;
-      })
-    );
-
     toast({
       title: 'Status Updated',
       description: STATUS_MESSAGES[newStatus],
     });
+
+    // Send notification to customer
+    sendNotification(order.phone, order.customerName, orderId, newStatus);
   }, [orders]);
 
   const deleteOrder = useCallback(async (orderId: string) => {
@@ -160,8 +227,6 @@ export const useOrders = () => {
       });
       return;
     }
-
-    setOrders((prev) => prev.filter((order) => order.orderId !== orderId));
     
     toast({
       title: 'Order Deleted',
