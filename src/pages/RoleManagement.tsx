@@ -54,7 +54,7 @@ export default function RoleManagement() {
       // Fetch profiles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, created_at');
+        .select('user_id, full_name, email, created_at');
 
       if (profilesError) throw profilesError;
 
@@ -71,10 +71,10 @@ export default function RoleManagement() {
 
       const usersMap = new Map<string, UserWithRoles>();
 
-      profiles?.forEach((profile) => {
+      profiles?.forEach((profile: any) => {
         usersMap.set(profile.user_id, {
           id: profile.user_id,
-          email: profile.user_id.substring(0, 8) + '...', // Truncated ID as placeholder
+          email: profile.email || 'No email',
           fullName: profile.full_name,
           roles: [],
           createdAt: profile.created_at,
