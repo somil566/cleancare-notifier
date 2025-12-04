@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { OrderCard } from '@/components/OrderCard';
 import { StatsCards } from '@/components/StatsCards';
+import { DashboardAnalytics } from '@/components/DashboardAnalytics';
 import { QRScanner } from '@/components/QRScanner';
 import { useOrders } from '@/hooks/useOrders';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,11 +12,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, Filter, LayoutGrid, List, Package, Download, RefreshCw, LogOut, Shield, User, Users, ScanLine } from 'lucide-react';
+import { Search, Filter, LayoutGrid, List, Package, Download, RefreshCw, LogOut, Shield, User, Users, ScanLine, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { exportOrdersToCSV } from '@/lib/exportToExcel';
 import { toast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Admin = () => {
   const { orders, updateOrderStatus, deleteOrder, getOrdersByStatus, getOrderById } = useOrders();
@@ -111,10 +113,25 @@ const Admin = () => {
           <span>Live updates enabled</span>
         </div>
 
-        {/* Stats */}
-        <div className="mb-8 animate-slide-in">
-          <StatsCards orders={orders} />
-        </div>
+        {/* Stats & Analytics Tabs */}
+        <Tabs defaultValue="overview" className="mb-8 animate-slide-in">
+          <TabsList className="mb-4">
+            <TabsTrigger value="overview" className="gap-2">
+              <Package className="w-4 h-4" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Analytics
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="overview">
+            <StatsCards orders={orders} />
+          </TabsContent>
+          <TabsContent value="analytics">
+            <DashboardAnalytics orders={orders} />
+          </TabsContent>
+        </Tabs>
 
         {/* Filters and Controls */}
         <Card className="mb-6 border-border/50">
