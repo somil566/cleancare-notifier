@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { OrderCard } from '@/components/OrderCard';
 import { StatsCards } from '@/components/StatsCards';
@@ -9,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, Filter, LayoutGrid, List, Package, Download, RefreshCw, LogOut, Shield, User } from 'lucide-react';
+import { Search, Filter, LayoutGrid, List, Package, Download, RefreshCw, LogOut, Shield, User, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { exportOrdersToCSV } from '@/lib/exportToExcel';
 import { toast } from '@/hooks/use-toast';
@@ -61,6 +62,14 @@ const Admin = () => {
                 )}
               </Badge>
             </div>
+            {isAdmin && (
+              <Link to="/roles">
+                <Button variant="outline" className="gap-2">
+                  <Users className="w-4 h-4" />
+                  <span className="hidden sm:inline">Roles</span>
+                </Button>
+              </Link>
+            )}
             <Button 
               variant="outline" 
               onClick={() => {
