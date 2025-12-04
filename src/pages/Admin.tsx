@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { OrderCard } from '@/components/OrderCard';
 import { StatsCards } from '@/components/StatsCards';
+import { QRScanner } from '@/components/QRScanner';
 import { useOrders } from '@/hooks/useOrders';
 import { useAuth } from '@/hooks/useAuth';
 import { OrderStatus, STATUS_LABELS, STATUS_ORDER } from '@/types/order';
@@ -10,21 +11,34 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, Filter, LayoutGrid, List, Package, Download, RefreshCw, LogOut, Shield, User, Users } from 'lucide-react';
+import { Search, Filter, LayoutGrid, List, Package, Download, RefreshCw, LogOut, Shield, User, Users, ScanLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { exportOrdersToCSV } from '@/lib/exportToExcel';
 import { toast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 
 const Admin = () => {
-  const { orders, updateOrderStatus, deleteOrder, getOrdersByStatus } = useOrders();
+  const { orders, updateOrderStatus, deleteOrder, getOrdersByStatus, getOrderById } = useOrders();
   const { user, isAdmin, signOut } = useAuth();
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showScanner, setShowScanner] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
+  };
+
+  const handleQRScan = (orderId: string) => {
+    setShowScanner(false);
+    const order = getOrderById(orderId);
+    if (order) {
+      setSearchQuery(orderId);
+      setStatusFilter('all');
+      toast({ title: 'Order Found', description: `Found order ${orderId}` });
+    } else {
+      toast({ title: 'Order Not Found', description: `No order with ID ${orderId}`, variant: 'destructive' });
+    }
   };
 
   const filteredOrders = getOrdersByStatus(statusFilter).filter(
@@ -118,6 +132,16 @@ const Admin = () => {
                   />
                 </div>
 
+                {/* QR Scanner Button */}
+                <Button
+                  variant="outline"
+                  onClick={() => setShowScanner(true)}
+                  className="gap-2"
+                >
+                  <ScanLine className="w-4 h-4" />
+                  <span className="hidden sm:inline">Scan QR</span>
+                </Button>
+
                 {/* Status Filter */}
                 <Select
                   value={statusFilter}
@@ -210,6 +234,11 @@ const Admin = () => {
           </Card>
         )}
       </main>
+
+      {/* QR Scanner Modal */}
+      {showScanner && (
+        <QRScanner onScan={handleQRScan} onClose={() => setShowScanner(false)} />
+      )}
     </div>
   );
 };
