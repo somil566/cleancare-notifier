@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { ProgressTracker } from '@/components/ProgressTracker';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -6,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useOrders } from '@/hooks/useOrders';
-import { Search, Shirt, User, Phone, Calendar, AlertCircle } from 'lucide-react';
+import { Search, Shirt, User, Phone, Calendar, AlertCircle, ShieldCheck } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 const Index = () => {
@@ -169,6 +170,16 @@ const Index = () => {
             )}
           </div>
         )}
+
+        {/* Staff Login Link */}
+        <div className="text-center mt-12 pt-8 border-t border-border/50">
+          <Link to="/auth">
+            <Button variant="ghost" className="gap-2 text-muted-foreground hover:text-foreground">
+              <ShieldCheck className="w-4 h-4" />
+              Staff Portal
+            </Button>
+          </Link>
+        </div>
 
         {/* Features Section */}
         {!hasSearched && (
