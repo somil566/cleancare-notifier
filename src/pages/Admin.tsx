@@ -3,21 +3,28 @@ import { Navbar } from '@/components/Navbar';
 import { OrderCard } from '@/components/OrderCard';
 import { StatsCards } from '@/components/StatsCards';
 import { useOrders } from '@/hooks/useOrders';
+import { useAuth } from '@/hooks/useAuth';
 import { OrderStatus, STATUS_LABELS, STATUS_ORDER } from '@/types/order';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, Filter, LayoutGrid, List, Package, Download, RefreshCw } from 'lucide-react';
+import { Search, Filter, LayoutGrid, List, Package, Download, RefreshCw, LogOut, Shield, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { exportOrdersToCSV } from '@/lib/exportToExcel';
 import { toast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 const Admin = () => {
   const { orders, updateOrderStatus, deleteOrder, getOrdersByStatus } = useOrders();
+  const { user, isAdmin, signOut } = useAuth();
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   const filteredOrders = getOrdersByStatus(statusFilter).filter(
     (order) =>
@@ -39,21 +46,40 @@ const Admin = () => {
               Manage all laundry orders and track their progress
             </p>
           </div>
-          <Button 
-            variant="outline" 
-            onClick={() => {
-              if (orders.length === 0) {
-                toast({ title: 'No Data', description: 'No orders to export', variant: 'destructive' });
-                return;
-              }
-              exportOrdersToCSV(orders);
-              toast({ title: 'Export Successful', description: 'Orders exported to CSV file' });
-            }} 
-            className="gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Export to Excel
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground border border-border rounded-lg px-3 py-2">
+              <User className="w-4 h-4" />
+              <span className="hidden sm:inline">{user?.email}</span>
+              <Badge variant={isAdmin ? 'default' : 'secondary'} className="text-xs">
+                {isAdmin ? (
+                  <>
+                    <Shield className="w-3 h-3 mr-1" />
+                    Admin
+                  </>
+                ) : (
+                  'Staff'
+                )}
+              </Badge>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                if (orders.length === 0) {
+                  toast({ title: 'No Data', description: 'No orders to export', variant: 'destructive' });
+                  return;
+                }
+                exportOrdersToCSV(orders);
+                toast({ title: 'Export Successful', description: 'Orders exported to CSV file' });
+              }} 
+              className="gap-2"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Export</span>
+            </Button>
+            <Button variant="outline" size="icon" onClick={handleSignOut} title="Sign Out">
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Real-time indicator */}

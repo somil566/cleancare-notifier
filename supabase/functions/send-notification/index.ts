@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,15 +23,136 @@ const STATUS_EMOJIS: Record<string, string> = {
   delivered: '🎉',
 };
 
+// Input validation functions
+function isValidPhone(phone: string): boolean {
+  // Allow international format with optional + and spaces/dashes
+  const phoneRegex = /^[+]?[\d\s-]{7,20}$/;
+  return phoneRegex.test(phone.trim());
+}
+
+function isValidCustomerName(name: string): boolean {
+  // Name should be 1-100 chars, no script tags or special chars
+  const sanitized = name.trim();
+  if (sanitized.length < 1 || sanitized.length > 100) return false;
+  // Block potential XSS/injection patterns
+  const dangerousPatterns = /<script|javascript:|on\w+=/i;
+  return !dangerousPatterns.test(sanitized);
+}
+
+function isValidOrderId(orderId: string): boolean {
+  // Order IDs should match format like SL-XXXXXX
+  const orderIdRegex = /^SL-[A-Z0-9]{6}$/;
+  return orderIdRegex.test(orderId);
+}
+
+function isValidStatus(status: string): boolean {
+  const validStatuses = ['received', 'washing', 'ironing', 'ready', 'delivered'];
+  return validStatuses.includes(status);
+}
+
+function isValidChannel(channel: string): boolean {
+  return ['sms', 'whatsapp', 'both'].includes(channel);
+}
+
+function sanitizeMessage(text: string): string {
+  // Remove any potential injection characters
+  return text.replace(/[<>]/g, '').trim().substring(0, 500);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { phone, customerName, orderId, status, statusMessage, channel }: NotificationRequest = await req.json();
+    // Verify the user is authenticated and has staff/admin role
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error("No authorization header provided");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    console.log(`Sending ${channel} notification to ${phone} for order ${orderId}`);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Get the authenticated user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.error("Auth error:", authError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if user has staff or admin role
+    const { data: roleData, error: roleError } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .in('role', ['staff', 'admin']);
+
+    if (roleError || !roleData || roleData.length === 0) {
+      console.error("User does not have required role:", roleError);
+      return new Response(
+        JSON.stringify({ error: "Forbidden: Staff or Admin role required" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const body: NotificationRequest = await req.json();
+    const { phone, customerName, orderId, status, statusMessage, channel } = body;
+
+    // Validate all inputs
+    const validationErrors: string[] = [];
+
+    if (!phone || !isValidPhone(phone)) {
+      validationErrors.push("Invalid phone number format");
+    }
+    if (!customerName || !isValidCustomerName(customerName)) {
+      validationErrors.push("Invalid customer name");
+    }
+    if (!orderId || !isValidOrderId(orderId)) {
+      validationErrors.push("Invalid order ID format");
+    }
+    if (!status || !isValidStatus(status)) {
+      validationErrors.push("Invalid status");
+    }
+    if (!channel || !isValidChannel(channel)) {
+      validationErrors.push("Invalid channel");
+    }
+
+    if (validationErrors.length > 0) {
+      console.error("Validation errors:", validationErrors);
+      return new Response(
+        JSON.stringify({ error: "Validation failed", details: validationErrors }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verify the order exists
+    const { data: orderData, error: orderError } = await supabase
+      .from('orders')
+      .select('order_id')
+      .eq('order_id', orderId)
+      .single();
+
+    if (orderError || !orderData) {
+      console.error("Order not found:", orderId);
+      return new Response(
+        JSON.stringify({ error: "Order not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Sending ${channel} notification to ${phone} for order ${orderId} by user ${user.id}`);
 
     const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
     const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
@@ -42,7 +164,9 @@ serve(async (req) => {
     }
 
     const emoji = STATUS_EMOJIS[status] || '📋';
-    const message = `${emoji} Smart Laundry Update\n\nHi ${customerName}!\n\n${statusMessage}\n\nOrder ID: ${orderId}\n\nTrack your order anytime!`;
+    const sanitizedName = sanitizeMessage(customerName);
+    const sanitizedStatusMsg = sanitizeMessage(statusMessage);
+    const message = `${emoji} Smart Laundry Update\n\nHi ${sanitizedName}!\n\n${sanitizedStatusMsg}\n\nOrder ID: ${orderId}\n\nTrack your order anytime!`;
 
     const results: { sms?: boolean; whatsapp?: boolean } = {};
 
@@ -58,7 +182,7 @@ serve(async (req) => {
               "Content-Type": "application/x-www-form-urlencoded",
             },
             body: new URLSearchParams({
-              To: phone,
+              To: phone.trim(),
               From: twilioPhone,
               Body: message,
             }),
@@ -86,7 +210,7 @@ serve(async (req) => {
               "Content-Type": "application/x-www-form-urlencoded",
             },
             body: new URLSearchParams({
-              To: `whatsapp:${phone}`,
+              To: `whatsapp:${phone.trim()}`,
               From: `whatsapp:${twilioWhatsApp}`,
               Body: message,
             }),
