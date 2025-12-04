@@ -7,6 +7,8 @@ interface PrintableQRProps {
 }
 
 export const PrintableQR = ({ order }: PrintableQRProps) => {
+  const trackingUrl = `${window.location.origin}/track?id=${order.orderId}`;
+  
   return (
     <div className="print-content p-8 bg-white text-black" style={{ width: '300px' }}>
       <div className="text-center mb-4">
@@ -16,7 +18,7 @@ export const PrintableQR = ({ order }: PrintableQRProps) => {
       
       <div className="flex justify-center mb-4">
         <QRCodeSVG
-          value={order.orderId}
+          value={trackingUrl}
           size={150}
           level="H"
           bgColor="white"
@@ -46,6 +48,7 @@ export const PrintableQR = ({ order }: PrintableQRProps) => {
 };
 
 export const printQRCode = (order: Order) => {
+  const trackingUrl = `${window.location.origin}/track?id=${order.orderId}`;
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
@@ -123,7 +126,7 @@ export const printQRCode = (order: Order) => {
           <p>Order Receipt</p>
         </div>
         <div class="qr-container">
-          <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(order.orderId)}" alt="QR Code" />
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(trackingUrl)}" alt="QR Code" />
         </div>
         <div class="order-id">${order.orderId}</div>
         <div class="details">

@@ -11,6 +11,7 @@ import NewOrder from "./pages/NewOrder";
 import Auth from "./pages/Auth";
 import RoleManagement from "./pages/RoleManagement";
 import NotFound from "./pages/NotFound";
+import TrackOrder from "./pages/TrackOrder";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +49,7 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route path="/track" element={<TrackOrder />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
