@@ -40,8 +40,8 @@ function isValidCustomerName(name: string): boolean {
 }
 
 function isValidOrderId(orderId: string): boolean {
-  // Order IDs should match format like SL-XXXXXX
-  const orderIdRegex = /^SL-[A-Z0-9]{6}$/;
+  // Order IDs should match format like LD-XXXXXXXX-XXXX
+  const orderIdRegex = /^LD-[A-Z0-9]{8}-[A-Z0-9]{4}$/;
   return orderIdRegex.test(orderId);
 }
 
@@ -76,14 +76,16 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
+    // Extract JWT token from Authorization header
+    const jwt = authHeader.replace('Bearer ', '');
+    
+    // Use service role client to verify the user
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get the authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get the authenticated user from the JWT token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
     if (authError || !user) {
       console.error("Auth error:", authError);
       return new Response(
