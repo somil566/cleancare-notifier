@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, Filter, LayoutGrid, List, Package, Download, RefreshCw, LogOut, Shield, User, Users, ScanLine, BarChart3 } from 'lucide-react';
+import { Search, Filter, LayoutGrid, List, Package, Download, RefreshCw, LogOut, Shield, User, Users, ScanLine, BarChart3, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { exportOrdersToCSV } from '@/lib/exportToExcel';
 import { toast } from '@/hooks/use-toast';
@@ -79,12 +79,20 @@ const Admin = () => {
               </Badge>
             </div>
             {isAdmin && (
-              <Link to="/roles">
-                <Button variant="outline" className="gap-2">
-                  <Users className="w-4 h-4" />
-                  <span className="hidden sm:inline">Roles</span>
-                </Button>
-              </Link>
+              <>
+                <Link to="/roles">
+                  <Button variant="outline" className="gap-2">
+                    <Users className="w-4 h-4" />
+                    <span className="hidden sm:inline">Roles</span>
+                  </Button>
+                </Link>
+                <Link to="/audit-logs">
+                  <Button variant="outline" className="gap-2">
+                    <History className="w-4 h-4" />
+                    <span className="hidden sm:inline">Audit</span>
+                  </Button>
+                </Link>
+              </>
             )}
             <Button 
               variant="outline" 

@@ -10,6 +10,7 @@ import Admin from "./pages/Admin";
 import NewOrder from "./pages/NewOrder";
 import Auth from "./pages/Auth";
 import RoleManagement from "./pages/RoleManagement";
+import AuditLogs from "./pages/AuditLogs";
 import NotFound from "./pages/NotFound";
 import TrackOrder from "./pages/TrackOrder";
 
@@ -46,6 +47,14 @@ const App = () => (
               element={
                 <ProtectedRoute requireAdmin>
                   <RoleManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/audit-logs"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <AuditLogs />
                 </ProtectedRoute>
               }
             />
