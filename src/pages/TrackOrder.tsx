@@ -6,14 +6,23 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProgressTracker } from "@/components/ProgressTracker";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Search, Package, Phone, User, Calendar, Shirt } from "lucide-react";
-import type { Order, OrderStatus, OrderTimestamp } from "@/types/order";
+import { Search, Package, User, Calendar, Shirt } from "lucide-react";
+import type { OrderStatus, OrderTimestamp } from "@/types/order";
+
+interface SafeOrder {
+  orderId: string;
+  customerName: string;
+  items: number;
+  status: OrderStatus;
+  timestamps: OrderTimestamp[];
+  createdAt: string;
+}
 
 export default function TrackOrder() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [orderId, setOrderId] = useState(searchParams.get("id") || "");
-  const [order, setOrder] = useState<Order | null>(null);
+  const [order, setOrder] = useState<SafeOrder | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
@@ -38,31 +47,24 @@ export default function TrackOrder() {
     setSearched(true);
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("order_id", searchId.toUpperCase())
-        .maybeSingle();
+      // Use the secure edge function for public order lookup
+      const { data, error: fetchError } = await supabase.functions.invoke("lookup-order", {
+        body: { orderId: searchId },
+      });
 
       if (fetchError) {
         throw fetchError;
       }
 
-      if (!data) {
-        setError("Order not found. Please check your order ID and try again.");
+      if (data.error) {
+        if (data.error === "Order not found") {
+          setError("Order not found. Please check your order ID and try again.");
+        } else {
+          setError(data.error);
+        }
         setOrder(null);
-      } else {
-        // Map database fields to Order type
-        const mappedOrder: Order = {
-          orderId: data.order_id,
-          customerName: data.customer_name,
-          phone: data.phone,
-          items: data.items,
-          status: data.status as OrderStatus,
-          timestamps: data.timestamps as unknown as OrderTimestamp[],
-          createdAt: data.created_at,
-        };
-        setOrder(mappedOrder);
+      } else if (data.order) {
+        setOrder(data.order);
         // Update URL with order ID for sharing
         navigate(`/track?id=${searchId.toUpperCase()}`, { replace: true });
       }
@@ -145,7 +147,7 @@ export default function TrackOrder() {
                     <CardDescription>Order ID</CardDescription>
                     <CardTitle className="text-xl font-mono">{order.orderId}</CardTitle>
                   </div>
-                  <StatusBadge status={order.status as OrderStatus} />
+                  <StatusBadge status={order.status} />
                 </div>
               </CardHeader>
               <CardContent>
@@ -169,16 +171,6 @@ export default function TrackOrder() {
                   <div>
                     <p className="text-sm text-muted-foreground">Customer Name</p>
                     <p className="font-medium">{order.customerName}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Phone className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Phone</p>
-                    <p className="font-medium">{order.phone.replace(/(\d{3})(\d{3})(\d+)/, "$1-$2-$3")}</p>
                   </div>
                 </div>
 
